@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live HTML Editor - Powered by Gemini/Claude</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="editor-container">
+        <!-- Left Panel - HTML Preview -->
+        <div class="panel left-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">HTML Preview</h2>
+                <div class="file-selector">
+                    <input type="text" class="file-input" placeholder="Selected file..." id="filePath" value="whitebook/book/01_cover.html" readonly>
+                    <button class="btn btn-secondary" onclick="showFilePicker()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3H21C21.5523 3 22 3.44772 22 4V20C22 20.5523 21.5523 21 21 21H3C2.44772 21 2 20.5523 2 20V4C2 3.44772 2.44772 3 3 3Z"/>
+                            <path d="M8 3V21"/>
+                        </svg>
+                        Browse
+                    </button>
+                    <button class="btn btn-primary" onclick="loadFile()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9V21H21V9"/>
+                            <path d="M3 9H21L19 3H5L3 9Z"/>
+                            <path d="M12 3V9"/>
+                        </svg>
+                        Load
+                    </button>
+                </div>
+            </div>
+            <div class="preview-area" id="previewArea">
+                <iframe class="preview-iframe" id="previewFrame"></iframe>
+                <div class="element-overlay" id="element-overlay" style="display: none;">
+                    <div class="element-index" id="element-index"></div>
+                </div>
+            </div>
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Ready</span>
+                </div>
+                <span class="text-muted">Elements: <span id="elementCount">0</span></span>
+            </div>
+        </div>
+
+        <!-- Right Panel - Edit Controls -->
+        <div class="panel right-panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Edit Controls</h2>
+            </div>
+            
+            <div class="edit-controls">
+                <!-- CLI Selector -->
+                <div class="cli-selector">
+                    <div class="cli-option selected" onclick="selectCLI('gemini')" id="gemini-option">
+                        <div class="cli-name">Gemini</div>
+                        <div class="cli-command">gemini -p</div>
+                    </div>
+                    <div class="cli-option" onclick="selectCLI('claude')" id="claude-option">
+                        <div class="cli-name">Claude Code</div>
+                        <div class="cli-command">claude -p</div>
+                    </div>
+                </div>
+
+                <!-- Edit Mode Tabs -->
+                <div class="edit-tabs">
+                    <button class="tab active" onclick="switchTab('page')">Edit Page</button>
+                    <button class="tab" onclick="switchTab('component')">Edit Component</button>
+                </div>
+
+                <!-- Edit Page Section -->
+                <div class="edit-section active" id="page-section">
+                    <div class="form-group">
+                        <label class="form-label">Instructions for entire page</label>
+                        <textarea class="textarea" id="pageInstructions" placeholder="Enter instructions to modify the entire page..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="executePageEdit()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Execute Command
+                    </button>
+                    <div class="command-preview" id="pageCommandPreview" style="display: none;">
+                        <div class="command-label">Command Preview</div>
+                        <div class="command-text" id="pageCommandText"></div>
+                    </div>
+                </div>
+
+                <!-- Edit Component Section -->
+                <div class="edit-section" id="component-section">
+                    <div class="component-selector">
+                        <span class="form-label" style="margin: 0;">Select Component #</span>
+                        <input type="number" class="component-input" id="componentIndex" min="1" placeholder="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Instructions for component</label>
+                        <textarea class="textarea" id="componentInstructions" placeholder="Enter instructions to modify the selected component..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="executeComponentEdit()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Execute Command
+                    </button>
+                    <div class="command-preview" id="componentCommandPreview" style="display: none;">
+                        <div class="command-label">Command Preview</div>
+                        <div class="command-text" id="componentCommandText"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Picker Modal -->
+    <div class="modal" id="filePickerModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Select HTML File</h3>
+                <button class="close-btn" onclick="hideFilePicker()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="file-browser">
+                    <div class="breadcrumb" id="breadcrumb">
+                        <button class="breadcrumb-item" onclick="navigateToRoot()">Root</button>
+                    </div>
+                    <div class="file-list" id="fileList">
+                        <!-- File list will be populated here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideFilePicker()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="editor.js"></script>
+</body>
+</html>
