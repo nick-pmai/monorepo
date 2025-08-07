@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPT‑5 LinkedIn Post Helper</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    body { margin: 0; padding: 24px; background: #0b0c10; color: #e6edf3; }
+    .app { max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.6rem; margin-bottom: 8px; }
+    p.sub { opacity: 0.8; margin-top: 0; }
+    .card { background: #0d1117; border: 1px solid #30363d; border-radius: 14px; padding: 18px; margin: 18px 0; }
+    label { display: block; font-weight: 600; margin-bottom: 8px; }
+    input, textarea, select, button { width: 100%; box-sizing: border-box; border-radius: 12px; border: 1px solid #30363d; background: #161b22; color: #e6edf3; padding: 12px; }
+    textarea { min-height: 120px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    button { cursor: pointer; font-weight: 700; }
+    .output { white-space: pre-wrap; background: #0b1220; border: 1px dashed #2d3b55; padding: 16px; border-radius: 12px; min-height: 140px; }
+    .meta { font-size: 0.9rem; opacity: 0.8; }
+    .small { font-size: 0.85rem; }
+    .hint { opacity: 0.8; font-size: 0.9rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>GPT‑5 LinkedIn Post Helper</h1>
+    <p class="sub">Paste a topic, pick a vibe, and generate a post outline + draft using OpenAI's API.</p>
+
+    <div class="card">
+      <label for="apiKey">OpenAI API key</label>
+      <input id="apiKey" type="password" placeholder="sk-..." />
+      <p class="hint small">Key is only used locally in your browser. Nothing is sent anywhere except OpenAI's API.</p>
+    </div>
+
+    <div class="card">
+      <label for="topic">Topic or link to source</label>
+      <textarea id="topic" placeholder="e.g., Announcing GPT‑5: what’s new and how it changes practical coding."></textarea>
+      <div class="row">
+        <div>
+          <label for="tone">Tone</label>
+          <select id="tone">
+            <option>practical & concise</option>
+            <option>technical deep-dive</option>
+            <option>visionary but grounded</option>
+            <option>recruiting-focused</option>
+            <option>community shoutout</option>
+          </select>
+        </div>
+        <div>
+          <label for="length">Length</label>
+          <select id="length">
+            <option>~120 words</option>
+            <option>~200 words</option>
+            <option>~300 words</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="includeHashtags">Hashtags</label>
+          <select id="includeHashtags">
+            <option>smart</option>
+            <option>minimal</option>
+            <option>none</option>
+          </select>
+        </div>
+      </div>
+      <button id="generate">Generate post</button>
+    </div>
+
+    <div class="card">
+      <div class="grid-3">
+        <div>
+          <label>Outline</label>
+          <div id="outline" class="output"></div>
+        </div>
+        <div>
+          <label>Draft</label>
+          <div id="draft" class="output"></div>
+        </div>
+        <div>
+          <label>Alt variants</label>
+          <div id="alts" class="output"></div>
+        </div>
+      </div>
+      <p class="meta small">Model: <code>gpt-5</code> • Endpoint: <code>/v1/chat/completions</code></p>
+    </div>
+
+    <div class="card small">
+      <details>
+        <summary>Show request JSON</summary>
+        <pre id="json"></pre>
+      </details>
+    </div>
+  </div>
+
+  <script>
+    async function callOpenAI({ apiKey, topic, tone, length, hashtagMode }) {
+      const system = `You are an expert social copywriter for LinkedIn. Output three blocks: OUTLINE (3-5 bullets), DRAFT (one post in ${length}), ALTS (two short alternative hooks). Style must be ${tone}. If hashtag mode is \"smart\" use 3-5 specific tags; if \"minimal\" use ≤2; if \"none\" use none. Keep emojis tasteful (≤2). Avoid hype; prefer verifiable claims.`;
+      const user = `Topic: ${topic}\nAudience: senior engineers, founders, and researchers.\nConstraints: clarity first; no fluff; 1 call-to-action.`;
+
+      const body = {
+        model: "gpt-5",
+        temperature: 1,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user }
+        ]
+      };
+
+      const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(`OpenAI API error ${resp.status}: ${err}`);
+      }
+
+      const data = await resp.json();
+      const content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content ? data.choices[0].message.content : "";
+      return { body, content };
+    }
+
+    function splitBlocks(text) {
+      const out = { outline: "", draft: "", alts: "" };
+      const blocks = text.split(/\n\s*\n/);
+      const get = (label) => {
+        const m = text.match(new RegExp(`${label}[:\n]([\s\S]*)`, "i"));
+        return m && m[1] ? m[1].trim() : "";
+      };
+      out.outline = get("outline") || blocks[0] || "";
+      out.draft = get("draft") || blocks[1] || "";
+      out.alts = get("alts|alternatives|variants") || blocks[2] || "";
+      return out;
+    }
+
+    document.getElementById('generate').addEventListener('click', async () => {
+      const apiKeyEl = document.getElementById('apiKey');
+      const topicEl = document.getElementById('topic');
+      if (!apiKeyEl || !topicEl) {
+        alert('Missing input elements.');
+        return;
+      }
+      const apiKey = typeof apiKeyEl.value === 'string' ? apiKeyEl.value.trim() : '';
+      const topic = typeof topicEl.value === 'string' ? topicEl.value.trim() : '';
+      if (!apiKey || !topic) {
+        alert('Please provide both an OpenAI API key and a topic.');
+        return;
+      }
+      const tone = document.getElementById('tone').value;
+      const length = document.getElementById('length').value;
+      const hashtagMode = document.getElementById('includeHashtags').value;
+
+      const outlineEl = document.getElementById('outline');
+      const draftEl = document.getElementById('draft');
+      const altsEl = document.getElementById('alts');
+      const jsonEl = document.getElementById('json');
+
+      outlineEl.textContent = 'Thinking…';
+      draftEl.textContent = '';
+      altsEl.textContent = '';
+
+      try {
+        const { body, content } = await callOpenAI({ apiKey, topic, tone, length, hashtagMode });
+        const parts = splitBlocks(content);
+        outlineEl.textContent = parts.outline;
+        draftEl.textContent = parts.draft;
+        altsEl.textContent = parts.alts;
+        jsonEl.textContent = JSON.stringify(body, null, 2);
+      } catch (e) {
+        outlineEl.textContent = '';
+        draftEl.textContent = '';
+        altsEl.textContent = '';
+        alert(e.message);
+      }
+    });
+  </script>
+</body>
+</html>
